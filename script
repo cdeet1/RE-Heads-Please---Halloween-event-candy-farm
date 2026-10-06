@@ -1,38 +1,53 @@
-_G.CandyFarmActive = not _G.CandyFarmActive
-if _G.CandyFarmActive then
-    print("Auto-Teleport is now: ON (Execute script again to disable!)\n\n  Thank you for using my script! <3\n  -cdeet\n ")
-    local Players = game:GetService("Players")
-    local player = Players.LocalPlayer
-    local targetItems = {"CandyCrate", "SmashablePumpkin"}
-    local lastReset = os.clock()
-    local candyCount = 0
-    while _G.CandyFarmActive do
-        local character = player.Character
-        local targetFolder = game.Workspace:FindFirstChild("LocalCandy2026")
-        if character and targetFolder then
-            local rootPart = character:FindFirstChild("HumanoidRootPart")
-            if rootPart then
-                if os.clock() - lastReset >= 60 then
-                    rootPart.CFrame = CFrame.new(0, -500, 0)
-                    task.wait(3)
-                    lastReset = os.clock()
-                else
-                    for _, itemName in ipairs(targetItems) do
-                        local targetModel = targetFolder:FindFirstChild(itemName)
-                        if targetModel then
-                            local targetPart = targetModel:FindFirstChildWhichIsA("BasePart", true)
-                            if targetPart then
-                                rootPart.CFrame = targetPart.CFrame
-                                candyCount = candyCount + 1
-                                break 
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
+local Window = OrionLib:MakeWindow({Name = "Cdeet Candy Hub", HidePremium = true, SaveConfig = false, IntroText = "Candy Hub by cdeet"})
+local Tab = Window:MakeTab({Name = "Main", Icon = "rbxassetid://4483345998", PremiumOnly = false})
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local targetItems = {"CandyCrate", "SmashablePumpkin"}
+_G.CandyFarmActive = false
+Tab:AddToggle({
+    Name = "Auto-Teleport Candy Farm",
+    Default = false,
+    Callback = function(Value)
+        _G.CandyFarmActive = Value
+        if _G.CandyFarmActive then
+            print("Auto-Teleport is now: ON (Execute script again to disable!)\n\n  Thank you for using my script! <3\n  -cdeet\n ")
+            task.spawn(function()
+                local lastReset = os.clock()
+                local candyCount = 0
+                while _G.CandyFarmActive do
+                    local character = player.Character
+                    local targetFolder = game.Workspace:FindFirstChild("LocalCandy2026")
+                    if character and targetFolder then
+                        local rootPart = character:FindFirstChild("HumanoidRootPart")
+                        if rootPart then
+                            if os.clock() - lastReset >= 60 then
+                                rootPart.CFrame = CFrame.new(0, -500, 0)
+                                print("Reset character! (This is to avoid any errors.)")
+                                task.wait(3)
+                                lastReset = os.clock()
+                            else
+                                for _, itemName in ipairs(targetItems) do
+                                    local targetModel = targetFolder:FindFirstChild(itemName)
+                                    if targetModel then
+                                        local targetPart = targetModel:FindFirstChildWhichIsA("BasePart", true)
+                                        if targetPart then
+                                            rootPart.CFrame = targetPart.CFrame
+                                            candyCount = candyCount + 1
+                                            print("Picked up candy x" .. candyCount)
+                                            break 
+                                        end
+                                    end
+                                end
                             end
                         end
                     end
+                    task.wait(0.5)
                 end
-            end
+            end)
+        else
+            print("Auto-Teleport is now: OFF")
         end
-        task.wait(0.5)
-    end
-else
-    print("Auto-Teleport is now: OFF")
-end
+    end    
+})
+OrionLib:Init()
