@@ -124,10 +124,16 @@ References.Get = function(reference)
 end
 References.Update = function(reference, value)
 	local id = References.Get(reference)
-	for _, references in References.Widgets do
-		if not type(references) == "table" then
-			continue
+	for _, references in References.Widgets.Checkbox do
+		local list = references[id]
+		if list then
+			for _, widget in list do
+				widget.Internal.Value = value
+				widget.Callback(widget.Internal.Value)
+			end
 		end
+	end
+	for _, references in References.Widgets.Slider do
 		local list = references[id]
 		if list then
 			for _, widget in list do
@@ -1351,4 +1357,38 @@ function MultiDropdown:Set(options)
 		end
 	end
 	self.Internal.Value = options
-	self.Callback
+	self.Callback(options)
+end
+function MultiDropdown:Add(option)
+	if table.find(self.Options.Options, option) and not table.find(self.Internal.Value, option) then
+		table.insert(self.Internal.Value, option)
+		self.Callback(self.Internal.Value)
+	end
+end
+function MultiDropdown:Remove(option)
+	if table.find(self.Internal.Value, option) then
+		table.remove(self.Internal.Value, table.find(self.Internal.Value, option))
+		self.Callback(self.Internal.Value)
+	end
+end
+function MultiDropdown:Toggle(option)
+	if table.find(self.Internal.Value, option) then
+		self:Remove(option)
+	else
+		if table.find(self.Options.Options, option) then
+			table.insert(self.Internal.Value, option)
+			self.Callback(self.Options.Options)
+		end
+	end
+end
+local Keybind = {}
+Keybind.__index = Keybind
+function Section:Keybind(Options, Callback, Changed)
+	local Keybind = setmetatable({}, Keybind)
+	Keybind.Parent = self
+	Options = Options or {}
+	Options.Title = Options.Title or "No Keybind Title"
+	Options.Key = Options.Key or nil
+	Keybind.Callback = Callback or function() end
+	Keybind.Changed = Changed or function(keycode) end
+	Options.Flags = Options.Flags or
