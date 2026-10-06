@@ -1,7 +1,6 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
 local Helpers = {}
 function Helpers.GetWindowSize()
 	return game:GetService("Workspace").CurrentCamera.ViewportSize
@@ -51,7 +50,8 @@ function Helpers.IsPointInRect(Point, Position, Size)
 	return Point.X >= Position.X and Point.X <= Position.X + Size.X and Point.Y >= Position.Y and Point.Y <= Position.Y + Size.Y
 end
 function Helpers.IsMouseInRect(Position, Size)
-	return Helpers.IsPointInRect(Vector2.new(Mouse.X, Mouse.Y), Position, Size)
+	local mousePos = UserInputService:GetMouseLocation()
+	return Helpers.IsPointInRect(mousePos, Position, Size)
 end
 function Helpers.OnPress(Function)
 	return UserInputService.InputBegan:Connect(function(input)
@@ -271,13 +271,14 @@ function UI:Window(Options)
 		if not Window.Internal.Open then
 			return
 		end
+		local mousePos = UserInputService:GetMouseLocation()
 		if Helpers.IsMouseInRect(CloseButton.Position, CloseButton.Size) then
 			Window:Unload()
 		elseif not Window.Flags.Has(Flags.Window.NoCollapse) and (Helpers.IsMouseInRect(Helpers.GetDrawingBounds(Collapse).Position, Helpers.GetDrawingBounds(Collapse).Size)) then
 			Window.Internal.Collapsed = not Window.Internal.Collapsed
 		elseif not Window.Flags.Has(Flags.Window.NoMove) and (Helpers.IsMouseInRect(Top.Position, Top.Size)) then
 			Window.Internal.Dragging = true
-			Window.Internal.DragStart = Vector2.new(Mouse.X, Mouse.Y) - Window.Internal.PositionOffset
+			Window.Internal.DragStart = mousePos - Window.Internal.PositionOffset
 		end
 	end)
 	local OnRelease = Helpers.OnRelease(function()
@@ -317,7 +318,8 @@ function UI:Window(Options)
 			end
 		end
 		if Window.Internal.Dragging then
-			local Clamped = Vector2.new(Mouse.X, Mouse.Y) - Window.Internal.DragStart
+			local mousePos = UserInputService:GetMouseLocation()
+			local Clamped = mousePos - Window.Internal.DragStart
 			Window.Internal.PositionOffset = Clamped
 		end
 		Base.Position = Helpers.GetWindowMiddle(Base.Size / 2) + Window.Internal.PositionOffset
@@ -550,7 +552,7 @@ function Window:Tab(Options)
 			Tab.Parent.Internal.SelectedTab = Tab
 		elseif not Tab.Flags.Has(Flags.Tab.NoScroll) and Tab.Children.Drawings.ScrollBar.Enabled and Tab.Parent.Internal.SelectedTab == Tab and Helpers.IsMouseInRect(ScrollBar.Position, ScrollBar.Size) then
 			Tab.Internal.Scrolling = true
-			Tab.Internal.ScrollStart = Mouse.Y - ScrollBar.Position.Y
+			Tab.Internal.ScrollStart = UserInputService:GetMouseLocation().Y - ScrollBar.Position.Y
 		end
 	end)
 	local OnRelease = Helpers.OnRelease(function()
@@ -589,7 +591,7 @@ function Window:Tab(Options)
 			Tab.Internal.Scroll = 0
 		end
 		if Tab.Internal.Scrolling then
-			Tab.Internal.Scroll = ((TotalLength > MaxLength) and (math.clamp(Mouse.Y - Tab.Internal.ScrollStart, WindowDrawings.TabContainer.Drawing.Position.Y + Window.Theme.Global.Padding, WindowDrawings.TabContainer.Drawing.Position.Y + Window.Theme.Global.Padding + MaxLength - ScrollBar.Size.Y) - (WindowDrawings.TabContainer.Drawing.Position.Y + Window.Theme.Global.Padding)) / (MaxLength - ScrollBar.Size.Y) * (TotalLength - MaxLength) + Window.Theme.Global.Padding) or 0
+			Tab.Internal.Scroll = ((TotalLength > MaxLength) and (math.clamp(UserInputService:GetMouseLocation().Y - Tab.Internal.ScrollStart, WindowDrawings.TabContainer.Drawing.Position.Y + Window.Theme.Global.Padding, WindowDrawings.TabContainer.Drawing.Position.Y + Window.Theme.Global.Padding + MaxLength - ScrollBar.Size.Y) - (WindowDrawings.TabContainer.Drawing.Position.Y + Window.Theme.Global.Padding)) / (MaxLength - ScrollBar.Size.Y) * (TotalLength - MaxLength) + Window.Theme.Global.Padding) or 0
 		end
 	end
 	if not Tab.Parent.Internal.SelectedTab then
@@ -1059,7 +1061,8 @@ function Section:Slider(Options, Callback)
 		Title.Color = Slider.Parent.Parent.Parent.Theme.Global.Text
 		if Slider.Internal.Sliding then
 			local OldValue = Slider.Internal.Value
-			local Value = tonumber(string.format("%." .. math.max(0, -math.floor(math.log10(Slider.Options.Step))) .. "f", math.clamp(math.floor((Slider.Options.Min + (Slider.Options.Max - Slider.Options.Min) * math.clamp(Mouse.X - Base.Position.X, 0, Base.Size.X) / Base.Size.X) / Slider.Options.Step + 0.5) * Slider.Options.Step, Slider.Options.Min, Slider.Options.Max)))
+			local mousePos = UserInputService:GetMouseLocation()
+			local Value = tonumber(string.format("%." .. math.max(0, -math.floor(math.log10(Slider.Options.Step))) .. "f", math.clamp(math.floor((Slider.Options.Min + (Slider.Options.Max - Slider.Options.Min) * math.clamp(mousePos.X - Base.Position.X, 0, Base.Size.X) / Base.Size.X) / Slider.Options.Step + 0.5) * Slider.Options.Step, Slider.Options.Min, Slider.Options.Max)))
 			if Value ~= OldValue then
 				if Slider.Internal.Reference then
 					Options.Reference.Table[Options.Reference.Key] = math.clamp(Value, Slider.Options.Min, Slider.Options.Max)
@@ -1430,38 +1433,4 @@ function Section:Keybind(Options, Callback, Changed)
 			Keybind.Internal.Changing = false
 			return
 		end
-		if Keybind.Internal.Changing and (os.clock() - Keybind.Internal.ChangeStart) > (1 / 50) then
-			if input.KeyCode == Enum.KeyCode.Escape then
-				Keybind.Internal.Changing = false
-				Keybind.Options.Key = nil
-				Keybind.Changed(nil)
-				return
-			else
-				Keybind.Internal.Changing = false
-				Keybind.Internal.ChangeStart = os.clock()
-				Keybind.Options.Key = input.KeyCode
-				Keybind.Changed(input.KeyCode)
-			end
-			return
-		end
-	end)
-	table.insert(Keybind.Children.Connections, NextInput)
-	table.insert(Keybind.Children.Connections, OnPress)
-	Keybind.Update = function(index)
-		local Length = 0
-		for _index, Widget in Keybind.Parent.Children.Widgets do
-			if index > _index then
-				Length += Widget.Internal.Length
-			end
-		end
-		Title.Text = Keybind.Options.Title
-		Title.Position = Keybind.Parent.Children.Drawings.Top.Drawing.Position + Vector2.new(0, Keybind.Parent.Children.Drawings.Top.Drawing.Size.Y + Keybind.Parent.Parent.Parent.Theme.Global.Padding * 2) + Vector2.new(5, Length)
-		Title.Color = Keybind.Parent.Parent.Parent.Theme.Global.Text
-		Key.Text = "[" .. (Keybind.Internal.Changing and "..." or Keybind.Options.Key == nil and "NONE" or Helpers.GetKeyName(Keybind.Options.Key)) .. "]"
-		Key.Position = Title.Position + Vector2.new(Helpers.GetTextBounds(Title).X + 6, (Helpers.GetTextBounds(Title).Y - Helpers.GetTextBounds(Key).Y) / 2)
-		Key.Color = Keybind.Parent.Parent.Parent.Theme.Global.Text
-		Keybind.Internal.Length = Helpers.GetTextBounds(Title).Y + Keybind.Parent.Parent.Parent.Theme.Global.Padding * 1.25
-	end
-	table.insert(Keybind.Parent.Children.Widgets, Keybind)
-	return Keybind
-end
+		if Keybind.Internal.Changing and (
